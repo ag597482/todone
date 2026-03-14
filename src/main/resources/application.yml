@@ -1,3 +1,5 @@
 spring:
   application:
     name: todone
+  mongodb:
+    uri: mongodb://mongo:wOaYlmayBRkNZfEanGxSoNzIQDpDLsYk@metro.proxy.rlwy.net:51977/todone?authSource=admin
