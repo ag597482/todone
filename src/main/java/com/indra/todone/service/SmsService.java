@@ -75,10 +75,12 @@ public class SmsService {
             boolean verified = SUCCESS_STATUS.equalsIgnoreCase(response.getStatus())
                     && response.getDetails() != null
                     && response.getDetails().toLowerCase().contains("matched");
-            String message = response.getDetails() != null ? response.getDetails() : "Verification failed";
+            // When verification fails, return 2Factor Details value (e.g. "OTP Mismatch") as the message directly
+            String details = response.getDetails();
+            String message = verified ? "OTP verified successfully" : (details != null && !details.isBlank() ? details : "Verification failed");
             return VerifyOtpResponse.builder()
                     .verified(verified)
-                    .message(verified ? "OTP verified successfully" : message)
+                    .message(message)
                     .build();
         } catch (Exception e) {
             log.error("Failed to verify OTP: {}", e.getMessage());
