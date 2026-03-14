@@ -13,9 +13,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequestBody(HttpMessageNotReadableException ex) {
-        String message = ex.getMessage() != null && ex.getMessage().contains("required request body is missing")
-                ? "Request body is required"
-                : "Invalid request body. Ensure valid JSON with required fields (e.g. sessionId, otp for verify; phoneNumber for send OTP).";
+        String rawMessage = ex.getMessage() != null ? ex.getMessage() : "";
+        String message;
+        if (rawMessage.contains("required request body is missing")) {
+            message = "Request body is required";
+        } else if (rawMessage.contains("TaskStatus") || rawMessage.contains("taskStatus")) {
+            message = "Invalid task status. Allowed values: PENDING, COMPLETED";
+        } else {
+            message = "Invalid request body. Ensure valid JSON with required fields (e.g. sessionId, otp for verify; phoneNumber for send OTP).";
+        }
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.failure(message));
@@ -32,6 +38,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidOtp(InvalidOtpException ex) {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnauthorizedTaskAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnauthorizedTaskAccess(UnauthorizedTaskAccessException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
