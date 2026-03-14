@@ -3,3 +3,9 @@ spring:
     name: todone
   mongodb:
     uri: mongodb://mongo:wOaYlmayBRkNZfEanGxSoNzIQDpDLsYk@metro.proxy.rlwy.net:51977/todone?authSource=admin
+
+twofactor:
+  api:
+    key: ${TWO_FACTOR_KEY:2d7b9b7a-3fce-11f0-a562-0200cd936042}
+  otpMock: ${OTP_MOCK:false}
+  templateName: ${TWO_FACTOR_TEMPLATE:inqotp}

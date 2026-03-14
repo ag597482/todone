@@ -46,7 +46,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    @Operation(summary = "Get user by ID", description = "Returns a single user with the given user_id. Returns 404 if not found.")
+    @Operation(summary = "Get user by ID", description = "Returns a single user with the given userId. Returns 404 if not found.")
     public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable String userId) {
         return userService.getByUserId(userId)
                 .map(user -> ResponseEntity.ok(ApiResponse.success(user)))
@@ -72,7 +72,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
-    @Operation(summary = "Delete user by ID", description = "Deletes the user with the given user_id. Returns 204 on success, 404 if user not found.")
+    @Operation(summary = "Delete user by ID", description = "Deletes the user with the given userId. Returns 204 on success, 404 if user not found.")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String userId) {
         if (userService.deleteByUserId(userId)) {
             return ResponseEntity.ok(ApiResponse.success("User deleted successfully"));
