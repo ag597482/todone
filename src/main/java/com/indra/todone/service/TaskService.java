@@ -5,10 +5,12 @@ import com.indra.todone.dto.request.UpdateSubtaskStatusRequest;
 import com.indra.todone.dto.request.UpdateTaskStatusRequest;
 import com.indra.todone.exception.SubtaskNotFoundException;
 import com.indra.todone.exception.UnauthorizedTaskAccessException;
+import com.indra.todone.exception.UserNotFoundException;
 import com.indra.todone.model.Task;
 import com.indra.todone.model.TaskStep;
 import com.indra.todone.model.TaskStatus;
 import com.indra.todone.repository.TaskRepository;
+import com.indra.todone.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,9 +27,17 @@ import java.util.stream.Collectors;
 public class TaskService {
 
     private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
     private final OpenAIService openAIService;
 
     public Task createTask(CreateTaskRequest request) {
+        String authorId = request.getAuthorId();
+        if (authorId == null || authorId.isBlank()) {
+            throw new IllegalArgumentException("authorId is required.");
+        }
+        if (!userRepository.existsById(authorId)) {
+            throw new UserNotFoundException("User not found for authorId: " + authorId);
+        }
         Map<String, Object> meta = new LinkedHashMap<>(request.getMeta() != null ? request.getMeta() : Map.of());
         List<String> stepStrings = openAIService.generateStepsForTask(
                 request.getName() != null ? request.getName() : "",
