@@ -55,6 +55,16 @@ public class NotificationService {
     }
 
     /**
+     * Deletes all READ notifications for the given user.
+     */
+    public void deleteAllReadByUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required.");
+        }
+        notificationRepository.deleteByTargetedUserAndNotificationStatus(userId, NotificationStatus.READ);
+    }
+
+    /**
      * Updates the notification status. Only the targeted user can update. Returns empty if notification not found or user not the target.
      */
     public Optional<Notification> updateStatus(String notificationId, UpdateNotificationStatusRequest request) {

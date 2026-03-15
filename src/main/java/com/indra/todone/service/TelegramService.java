@@ -67,4 +67,24 @@ public class TelegramService {
         }
         return sendMessage(token, chatId, text != null ? text : "");
     }
+
+    /**
+     * Returns true if the user has Telegram linked (metadata.telegram contains non-blank token and chat_id).
+     */
+    public boolean hasTelegramLinked(User user) {
+        if (user == null || user.getMetadata() == null) {
+            return false;
+        }
+        Object telegramObj = user.getMetadata().get(METADATA_KEY_TELEGRAM);
+        if (!(telegramObj instanceof Map)) {
+            return false;
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> telegram = (Map<String, Object>) telegramObj;
+        Object tokenObj = telegram.get(TELEGRAM_KEY_TOKEN);
+        Object chatIdObj = telegram.get(TELEGRAM_KEY_CHAT_ID);
+        String token = tokenObj != null ? tokenObj.toString() : null;
+        String chatId = chatIdObj != null ? chatIdObj.toString() : null;
+        return token != null && !token.isBlank() && chatId != null && !chatId.isBlank();
+    }
 }

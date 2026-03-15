@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -70,6 +71,13 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<List<Notification>>> getNotificationsForUser(@PathVariable String userId) {
         List<Notification> notifications = notificationService.getByUserId(userId);
         return ResponseEntity.ok(ApiResponse.success(notifications));
+    }
+
+    @DeleteMapping("/user/{userId}")
+    @Operation(summary = "Delete read notifications for user", description = "Deletes all READ notifications for the given user id. DELIVERED notifications are not deleted.")
+    public ResponseEntity<ApiResponse<Void>> deleteAllReadByUserId(@PathVariable String userId) {
+        notificationService.deleteAllReadByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.success("All read notifications deleted for user"));
     }
 
     @PatchMapping("/{notificationId}/status")
