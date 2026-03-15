@@ -3,6 +3,7 @@ package com.indra.todone.controller;
 import com.indra.todone.dto.request.CreateUserRequest;
 import com.indra.todone.dto.request.UpdateUserRequest;
 import com.indra.todone.dto.response.ApiResponse;
+import com.indra.todone.dto.response.ProfileResponse;
 import com.indra.todone.model.User;
 import com.indra.todone.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,6 +51,24 @@ public class UserController {
     public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable String userId) {
         return userService.getByUserId(userId)
                 .map(user -> ResponseEntity.ok(ApiResponse.success(user)))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("User not found")));
+    }
+
+    @GetMapping("/{userId}/profile")
+    @Operation(summary = "Get user profile", description = "Returns user details with all tasks and completed/pending task counts. 404 if user not found.")
+    public ResponseEntity<ApiResponse<ProfileResponse>> getProfile(@PathVariable String userId) {
+        return userService.getProfile(userId)
+                .map(profile -> ResponseEntity.ok(ApiResponse.success(profile)))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("User not found")));
+    }
+
+    @PutMapping("/{userId}")
+    @Operation(summary = "Update user by ID", description = "Updates name and/or metadata for the user with the given userId. Only provided fields are updated. 404 if user not found.")
+    public ResponseEntity<ApiResponse<User>> updateUserById(
+            @PathVariable String userId,
+            @RequestBody UpdateUserRequest request) {
+        return userService.updateByUserId(userId, request)
+                .map(user -> ResponseEntity.ok(ApiResponse.success("User updated successfully", user)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("User not found")));
     }
 

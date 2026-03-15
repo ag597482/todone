@@ -62,6 +62,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
     @ExceptionHandler(DuplicatePhoneNumberException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicatePhoneNumber(DuplicatePhoneNumberException ex) {
         return ResponseEntity
