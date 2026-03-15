@@ -3,7 +3,9 @@ package com.indra.todone.controller;
 import com.indra.todone.dto.request.CreateNotificationRequest;
 import com.indra.todone.dto.request.UpdateNotificationStatusRequest;
 import com.indra.todone.dto.response.ApiResponse;
+import com.indra.todone.dto.response.NotificationBodyResponse;
 import com.indra.todone.model.Notification;
+import com.indra.todone.model.Task;
 import com.indra.todone.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +43,26 @@ public class NotificationController {
         }
         Notification notification = notificationService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Notification created", notification));
+    }
+
+    @GetMapping("/tasks-for-notification")
+    @Operation(summary = "Get tasks for notification", description = "Returns the list of today's pending tasks for the user (same list used when generating the notification body). Query param: userId. Uses today's date automatically.")
+    public ResponseEntity<ApiResponse<List<Task>>> getTasksForNotification(@RequestParam String userId) {
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("userId is required."));
+        }
+        List<Task> tasks = notificationService.getTasksForNotificationBody(userId);
+        return ResponseEntity.ok(ApiResponse.success(tasks));
+    }
+
+    @GetMapping("/generate-body")
+    @Operation(summary = "Generate notification body", description = "Generates a notification title and body for the user's pending tasks for today using OpenAI. Query param: userId. Returns { title, body }.")
+    public ResponseEntity<ApiResponse<NotificationBodyResponse>> generateNotificationBody(@RequestParam String userId) {
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("userId is required."));
+        }
+        NotificationBodyResponse body = notificationService.generateNotificationBody(userId);
+        return ResponseEntity.ok(ApiResponse.success(body));
     }
 
     @GetMapping("/user/{userId}")

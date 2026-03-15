@@ -26,6 +26,7 @@ public class OpenAIClient {
 
     private static final String OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
     private static final String SYSTEM_PROMPT = "You generate short actionable steps for completing a task. Always return at most 4 steps can be less depending upon task complexity. give output as strings seperated by ## charachter";
+    private static final String NOTIFICATION_SYSTEM_PROMPT = "You generate short mobile push notifications reminding users about their pending tasks. The title must be short and engaging. The body should summarize the pending tasks and motivate the user to complete them. Always return the response strictly in this JSON format: {\"title\": \"<notification_title>\", \"body\": \"<notification_body>\"}";
 
     @Value("${openai.api.token}")
     private String token;
@@ -118,6 +119,52 @@ public class OpenAIClient {
         } catch (IOException e) {
             log.error("Failed to parse OpenAI response: {}", e.getMessage());
             throw new OpenAIApiException("Invalid response format from OpenAI API", e);
+        }
+    }
+
+    /**
+     * Calls OpenAI Responses API to generate a notification title and body from a JSON string of tasks.
+     *
+     * @param tasksJson JSON string of tasks (e.g. array of task objects)
+     * @return the raw text from the response (expected to be JSON with "title" and "body"), or null if incomplete/empty
+     */
+    public String generateNotificationBody(String tasksJson) {
+        if (token == null || token.isBlank()) {
+            throw new OpenAIApiException("OpenAI API token is not configured. Set OPENAI_API_KEY.");
+        }
+        String userContent = "Tasks response : " + (tasksJson != null ? tasksJson : "[]");
+        List<Map<String, String>> input = List.of(
+                Map.of("role", "system", "content", NOTIFICATION_SYSTEM_PROMPT),
+                Map.of("role", "user", "content", userContent)
+        );
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "input", input
+        );
+
+        try {
+            String bodyJson = objectMapper.writeValueAsString(body);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(OPENAI_RESPONSES_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + token)
+                    .timeout(Duration.ofSeconds(60))
+                    .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("OpenAI API Response Status: {}", response.statusCode());
+
+            if (response.statusCode() != 200) {
+                String errorMsg = "OpenAI API error: HTTP " + response.statusCode() + " - " + response.body();
+                log.error(errorMsg);
+                throw new OpenAIApiException(errorMsg);
+            }
+
+            return parseOutputText(response.body());
+        } catch (IOException | InterruptedException e) {
+            log.error("Error calling OpenAI API: {}", e.getMessage());
+            throw new OpenAIApiException("OpenAI API request failed: " + e.getMessage(), e);
         }
     }
 }
