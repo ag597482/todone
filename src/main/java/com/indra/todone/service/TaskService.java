@@ -39,11 +39,10 @@ public class TaskService {
         if (!userRepository.existsById(authorId)) {
             throw new UserNotFoundException("User not found for authorId: " + authorId);
         }
-        Map<String, Object> meta;
-        if (request.getMeta() != null) {
-            meta = new LinkedHashMap<>(request.getMeta());
-        } else {
-            meta = new LinkedHashMap<>();
+        Map<String, Object> meta = request.getMeta() != null
+                ? new LinkedHashMap<>(request.getMeta())
+                : new LinkedHashMap<>();
+        if (!hasNonEmptySteps(meta)) {
             List<String> stepStrings = openAIService.generateStepsForTask(
                     request.getName() != null ? request.getName() : "",
                     request.getDescription() != null ? request.getDescription() : "");
@@ -195,6 +194,18 @@ public class TaskService {
             return "";
         }
         return value.trim().replaceAll("\\s+", " ");
+    }
+
+    /** Returns true if meta contains a non-empty "steps" list (so we skip AI step generation). */
+    private static boolean hasNonEmptySteps(Map<String, Object> meta) {
+        if (meta == null) {
+            return false;
+        }
+        Object stepsObj = meta.get("steps");
+        if (!(stepsObj instanceof List)) {
+            return false;
+        }
+        return !((List<?>) stepsObj).isEmpty();
     }
 
     /** Extract the step text from a step object (Map, TaskStep, String, or BSON-friendly Map). */
