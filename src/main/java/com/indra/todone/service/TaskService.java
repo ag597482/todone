@@ -39,14 +39,19 @@ public class TaskService {
         if (!userRepository.existsById(authorId)) {
             throw new UserNotFoundException("User not found for authorId: " + authorId);
         }
-        Map<String, Object> meta = new LinkedHashMap<>(request.getMeta() != null ? request.getMeta() : Map.of());
-        List<String> stepStrings = openAIService.generateStepsForTask(
-                request.getName() != null ? request.getName() : "",
-                request.getDescription() != null ? request.getDescription() : "");
-        List<TaskStep> steps = stepStrings.stream()
-                .map(s -> TaskStep.builder().value(s).completed(false).build())
-                .collect(Collectors.toList());
-        meta.put("steps", steps);
+        Map<String, Object> meta;
+        if (request.getMeta() != null) {
+            meta = new LinkedHashMap<>(request.getMeta());
+        } else {
+            meta = new LinkedHashMap<>();
+            List<String> stepStrings = openAIService.generateStepsForTask(
+                    request.getName() != null ? request.getName() : "",
+                    request.getDescription() != null ? request.getDescription() : "");
+            List<TaskStep> steps = stepStrings.stream()
+                    .map(s -> TaskStep.builder().value(s).completed(false).build())
+                    .collect(Collectors.toList());
+            meta.put("steps", steps);
+        }
 
         Task task = Task.builder()
                 .taskId(UUID.randomUUID().toString())
