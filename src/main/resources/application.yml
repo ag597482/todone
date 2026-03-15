@@ -9,3 +9,8 @@ twofactor:
     key: ${TWO_FACTOR_KEY:2d7b9b7a-3fce-11f0-a562-0200cd936042}
   otpMock: ${OTP_MOCK:false}
   templateName: ${TWO_FACTOR_TEMPLATE:inqotp}
+
+openai:
+  api:
+    token: ${OPENAI_API_KEY:}
+  model: ${OPENAI_MODEL:gpt-4o-mini}

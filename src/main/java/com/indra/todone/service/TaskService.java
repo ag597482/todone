@@ -1,32 +1,47 @@
 package com.indra.todone.service;
 
 import com.indra.todone.dto.request.CreateTaskRequest;
+import com.indra.todone.dto.request.UpdateSubtaskStatusRequest;
 import com.indra.todone.dto.request.UpdateTaskStatusRequest;
+import com.indra.todone.exception.SubtaskNotFoundException;
 import com.indra.todone.exception.UnauthorizedTaskAccessException;
 import com.indra.todone.model.Task;
+import com.indra.todone.model.TaskStep;
 import com.indra.todone.model.TaskStatus;
 import com.indra.todone.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TaskService {
 
     private final TaskRepository taskRepository;
+    private final OpenAIService openAIService;
 
     public Task createTask(CreateTaskRequest request) {
+        Map<String, Object> meta = new LinkedHashMap<>(request.getMeta() != null ? request.getMeta() : Map.of());
+        List<String> stepStrings = openAIService.generateStepsForTask(
+                request.getName() != null ? request.getName() : "",
+                request.getDescription() != null ? request.getDescription() : "");
+        List<TaskStep> steps = stepStrings.stream()
+                .map(s -> TaskStep.builder().value(s).completed(false).build())
+                .collect(Collectors.toList());
+        meta.put("steps", steps);
+
         Task task = Task.builder()
                 .taskId(UUID.randomUUID().toString())
                 .name(request.getName())
                 .description(request.getDescription())
-                .meta(request.getMeta() != null ? request.getMeta() : Map.of())
+                .meta(meta)
                 .dueDate(request.getDueDate())
                 .doneDate(null)
                 .status(TaskStatus.PENDING)
@@ -43,6 +58,47 @@ public class TaskService {
         return taskRepository.findById(taskId);
     }
 
+    public Optional<Task> updateSubtaskStatus(String taskId, UpdateSubtaskStatusRequest request) {
+        Optional<Task> opt = taskRepository.findById(taskId);
+        if (opt.isEmpty()) {
+            return Optional.empty();
+        }
+        Task task = opt.get();
+        if (!task.getAuthorId().equals(request.getUserId())) {
+            throw new UnauthorizedTaskAccessException("Only the task author can perform this action.");
+        }
+        Map<String, Object> meta = task.getMeta();
+        if (meta == null) {
+            throw new SubtaskNotFoundException("Task has no steps.");
+        }
+        Object stepsObj = meta.get("steps");
+        if (!(stepsObj instanceof List)) {
+            throw new SubtaskNotFoundException("Task has no steps.");
+        }
+        List<?> stepsList = (List<?>) stepsObj;
+        if (stepsList.isEmpty()) {
+            throw new SubtaskNotFoundException("Subtask not found.");
+        }
+        String targetValue = normalizeStepValue(request.getSubtaskValue() != null ? request.getSubtaskValue() : "");
+        boolean found = false;
+        for (int i = 0; i < stepsList.size(); i++) {
+            Object step = stepsList.get(i);
+            String stepValue = getStepValue(step);
+            if (stepValue == null) {
+                continue;
+            }
+            if (normalizeStepValue(stepValue).equals(targetValue)) {
+                setStepCompleted(step, i, stepsList, request.isCompleted());
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            throw new SubtaskNotFoundException("Subtask not found.");
+        }
+        return Optional.of(taskRepository.save(task));
+    }
+
     public Optional<Task> updateStatus(String taskId, UpdateTaskStatusRequest request) {
         Optional<Task> opt = taskRepository.findById(taskId);
         if (opt.isEmpty()) {
@@ -55,10 +111,27 @@ public class TaskService {
         task.setStatus(request.getTaskStatus());
         if (request.getTaskStatus() == TaskStatus.COMPLETED) {
             task.setDoneDate(LocalDate.now());
+            markAllSubtasksCompleted(task);
         } else {
             task.setDoneDate(null);
         }
         return Optional.of(taskRepository.save(task));
+    }
+
+    /** Sets every step in meta.steps to completed = true. */
+    private void markAllSubtasksCompleted(Task task) {
+        Map<String, Object> meta = task.getMeta();
+        if (meta == null) {
+            return;
+        }
+        Object stepsObj = meta.get("steps");
+        if (!(stepsObj instanceof List)) {
+            return;
+        }
+        List<?> stepsList = (List<?>) stepsObj;
+        for (int i = 0; i < stepsList.size(); i++) {
+            setStepCompleted(stepsList.get(i), i, stepsList, true);
+        }
     }
 
     public List<Task> getTasksForUserId(String userId, Optional<LocalDate> date) {
@@ -78,5 +151,66 @@ public class TaskService {
         }
         taskRepository.delete(task.get());
         return true;
+    }
+
+    /** Trim and normalize whitespace for reliable step value matching. */
+    private static String normalizeStepValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ");
+    }
+
+    /** Extract the step text from a step object (Map, TaskStep, String, or BSON-friendly Map). */
+    private static String getStepValue(Object step) {
+        if (step == null) {
+            return null;
+        }
+        if (step instanceof TaskStep) {
+            return ((TaskStep) step).getValue();
+        }
+        if (step instanceof String) {
+            return (String) step;
+        }
+        if (step instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> m = (Map<String, Object>) step;
+            Object v = m.get("value");
+            if (v == null) {
+                v = m.get("Value");
+            }
+            if (v == null) {
+                for (Map.Entry<String, Object> e : m.entrySet()) {
+                    if (e.getKey() != null && "value".equalsIgnoreCase(e.getKey())) {
+                        v = e.getValue();
+                        break;
+                    }
+                }
+            }
+            return v != null ? v.toString() : null;
+        }
+        return null;
+    }
+
+    /** Set completed on the step and ensure it is a mutable map so it persists (for Map/BSON steps). */
+    private void setStepCompleted(Object step, int index, List<?> stepsList, boolean completed) {
+        if (step instanceof TaskStep) {
+            ((TaskStep) step).setCompleted(completed);
+            return;
+        }
+        if (step instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> stepMap = (Map<String, Object>) step;
+            stepMap.put("completed", completed);
+            return;
+        }
+        if (step instanceof String) {
+            Map<String, Object> newStep = new LinkedHashMap<>();
+            newStep.put("value", step);
+            newStep.put("completed", completed);
+            @SuppressWarnings("unchecked")
+            List<Object> mutableSteps = (List<Object>) stepsList;
+            mutableSteps.set(index, newStep);
+        }
     }
 }

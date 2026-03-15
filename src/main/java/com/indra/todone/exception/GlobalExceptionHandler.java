@@ -34,6 +34,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
+    @ExceptionHandler(OpenAIApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOpenAIApi(OpenAIApiException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
     @ExceptionHandler(InvalidOtpException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidOtp(InvalidOtpException ex) {
         return ResponseEntity
@@ -45,6 +52,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnauthorizedTaskAccess(UnauthorizedTaskAccessException ex) {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
+    @ExceptionHandler(SubtaskNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSubtaskNotFound(SubtaskNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
