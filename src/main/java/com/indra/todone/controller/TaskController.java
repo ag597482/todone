@@ -71,7 +71,7 @@ public class TaskController {
     }
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get tasks for user", description = "Returns tasks for the given user. Optional query param date (yyyy-MM-dd): if present, tasks with dueDate on that date; otherwise all tasks for the user.")
+    @Operation(summary = "Get tasks for user", description = "Returns tasks for the given user. Optional query param date (yyyy-MM-dd): if present, returns pending and completed tasks with dueDate less than or equal to the given date, and always includes today's pending tasks; otherwise all tasks for the user.")
     public ResponseEntity<ApiResponse<List<Task>>> getTasksForUser(
             @PathVariable String userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

@@ -1,5 +1,6 @@
 package com.indra.todone.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.indra.todone.dto.request.CreateUserRequest;
 import com.indra.todone.dto.request.UpdateUserRequest;
 import com.indra.todone.dto.response.ProfileResponse;
@@ -8,22 +9,29 @@ import com.indra.todone.model.Task;
 import com.indra.todone.model.TaskStatus;
 import com.indra.todone.model.User;
 import com.indra.todone.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class UserService {
 
+    private static final String TELEGRAM_WELCOME_MESSAGE = "Welcome! Your account has been linked to this bot. You'll receive task notifications here.";
+
     private final UserRepository userRepository;
     private final TaskService taskService;
+    private final TelegramService telegramService;
 
-    public UserService(UserRepository userRepository, TaskService taskService) {
+    public UserService(UserRepository userRepository, TaskService taskService, TelegramService telegramService) {
         this.userRepository = userRepository;
         this.taskService = taskService;
+        this.telegramService = telegramService;
     }
 
     public User createUser(CreateUserRequest request) {
@@ -50,6 +58,17 @@ public class UserService {
 
     public Optional<User> getByPhoneNumber(String phoneNumber) {
         return userRepository.findFirstByPhoneNumber(phoneNumber);
+    }
+
+    /** Finds user by userId if provided, otherwise by phoneNumber. Returns empty if neither is provided or user not found. */
+    public Optional<User> findByIdOrPhoneNumber(String userId, String phoneNumber) {
+        if (userId != null && !userId.isBlank()) {
+            return userRepository.findById(userId);
+        }
+        if (phoneNumber != null && !phoneNumber.isBlank()) {
+            return userRepository.findFirstByPhoneNumber(phoneNumber);
+        }
+        return Optional.empty();
     }
 
     public Optional<User> updateByUserId(String userId, UpdateUserRequest request) {
@@ -98,6 +117,48 @@ public class UserService {
                             .completedTasksCount(completedCount)
                             .pendingTasksCount(pendingCount)
                             .build();
+                });
+    }
+
+    /**
+     * Links a Telegram bot to the user by fetching getUpdates with the token, extracting the chat id,
+     * and saving telegram.token and telegram.chat_id in the user's metadata.
+     */
+    public Optional<User> linkTelegram(String userId, String telegramToken) {
+        return userRepository.findById(userId)
+                .map(user -> {
+                    if (telegramToken == null || telegramToken.isBlank()) {
+                        throw new IllegalArgumentException("telegramToken is required.");
+                    }
+                    JsonNode updates = telegramService.getUpdates(telegramToken);
+                    if (!updates.isArray() || updates.isEmpty()) {
+                        throw new IllegalArgumentException("No updates found. Please send a message to the bot first.");
+                    }
+                    String chatId = null;
+                    for (JsonNode update : updates) {
+                        JsonNode message = update.path("message");
+                        if (message.isMissingNode()) {
+                            continue;
+                        }
+                        JsonNode chat = message.path("chat");
+                        if (!chat.isMissingNode() && chat.has("id")) {
+                            chatId = chat.get("id").asText();
+                            break;
+                        }
+                    }
+                    if (chatId == null) {
+                        throw new IllegalArgumentException("No chat id found in updates. Please send a message to the bot first.");
+                    }
+                    Map<String, Object> metadata = new LinkedHashMap<>(user.getMetadata() != null ? user.getMetadata() : Map.of());
+                    metadata.put("telegram", Map.of("token", telegramToken, "chat_id", chatId));
+                    user.setMetadata(metadata);
+                    User savedUser = userRepository.save(user);
+                    try {
+                        telegramService.sendMessage(telegramToken, chatId, TELEGRAM_WELCOME_MESSAGE);
+                    } catch (Exception e) {
+                        log.warn("Failed to send Telegram welcome message to chat {}: {}", chatId, e.getMessage());
+                    }
+                    return savedUser;
                 });
     }
 }

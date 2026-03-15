@@ -1,6 +1,7 @@
 package com.indra.todone.controller;
 
 import com.indra.todone.dto.request.CreateUserRequest;
+import com.indra.todone.dto.request.LinkTelegramRequest;
 import com.indra.todone.dto.request.UpdateUserRequest;
 import com.indra.todone.dto.response.ApiResponse;
 import com.indra.todone.dto.response.ProfileResponse;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -69,6 +71,19 @@ public class UserController {
             @RequestBody UpdateUserRequest request) {
         return userService.updateByUserId(userId, request)
                 .map(user -> ResponseEntity.ok(ApiResponse.success("User updated successfully", user)))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("User not found")));
+    }
+
+    @PatchMapping("/{userId}/telegram")
+    @Operation(summary = "Link Telegram to user", description = "Uses the Telegram bot token to fetch getUpdates, extracts chat id from the first update, and saves telegram.token and telegram.chat_id in the user's metadata. 404 if user not found. 400 if token is blank or no updates/chat id.")
+    public ResponseEntity<ApiResponse<User>> linkTelegram(
+            @PathVariable String userId,
+            @RequestBody LinkTelegramRequest request) {
+        if (request.getTelegramToken() == null || request.getTelegramToken().isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("telegramToken is required."));
+        }
+        return userService.linkTelegram(userId, request.getTelegramToken())
+                .map(user -> ResponseEntity.ok(ApiResponse.success("Telegram linked successfully", user)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("User not found")));
     }
 

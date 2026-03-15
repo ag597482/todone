@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,9 +147,29 @@ public class TaskService {
 
     public List<Task> getTasksForUserId(String userId, Optional<LocalDate> date) {
         if (date.isPresent()) {
-            return taskRepository.findByAuthorIdAndDueDate(userId, date.get());
+            LocalDate inputDate = date.get();
+            LocalDate today = LocalDate.now();
+            List<Task> pendingByDate = taskRepository.findByAuthorIdAndStatusAndDueDateLessThanEqual(userId, TaskStatus.PENDING, inputDate);
+            List<Task> completedByDate = taskRepository.findByAuthorIdAndStatusAndDueDateLessThanEqual(userId, TaskStatus.COMPLETED, inputDate);
+            List<Task> merged = mergeTasksById(pendingByDate, completedByDate);
+            if (inputDate.isBefore(today)) {
+                List<Task> todayPending = taskRepository.findByAuthorIdAndStatusAndDueDate(userId, TaskStatus.PENDING, today);
+                return mergeTasksById(merged, todayPending);
+            }
+            return merged;
         }
         return taskRepository.findByAuthorId(userId);
+    }
+
+    private static List<Task> mergeTasksById(List<Task> list1, List<Task> list2) {
+        Map<String, Task> byId = new LinkedHashMap<>();
+        for (Task t : list1) {
+            byId.put(t.getTaskId(), t);
+        }
+        for (Task t : list2) {
+            byId.putIfAbsent(t.getTaskId(), t);
+        }
+        return new ArrayList<>(byId.values());
     }
 
     public boolean deleteByTaskIdAndUserId(String taskId, String userId) {
