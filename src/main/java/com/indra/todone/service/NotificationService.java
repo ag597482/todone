@@ -51,7 +51,11 @@ public class NotificationService {
     }
 
     public List<Notification> getByUserId(String userId) {
-        return notificationRepository.findByTargetedUserOrderByNotificationTimeDesc(userId);
+        List<Notification> notifications = notificationRepository.findByTargetedUserOrderByNotificationTimeDesc(userId);
+        for (Notification n : notifications) {
+            n.setNotificationDesc(normalizeNotificationDesc(n.getNotificationDesc()));
+        }
+        return notifications;
     }
 
     /**
