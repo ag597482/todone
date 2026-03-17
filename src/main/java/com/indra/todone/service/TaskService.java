@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +29,6 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    private final OpenAIService openAIService;
 
     public Task createTask(CreateTaskRequest request) {
         String authorId = request.getAuthorId();
@@ -43,14 +41,8 @@ public class TaskService {
         Map<String, Object> meta = request.getMeta() != null
                 ? new LinkedHashMap<>(request.getMeta())
                 : new LinkedHashMap<>();
-        if (!hasNonEmptySteps(meta)) {
-            List<String> stepStrings = openAIService.generateStepsForTask(
-                    request.getName() != null ? request.getName() : "",
-                    request.getDescription() != null ? request.getDescription() : "");
-            List<TaskStep> steps = stepStrings.stream()
-                    .map(s -> TaskStep.builder().value(s).completed(false).build())
-                    .collect(Collectors.toList());
-            meta.put("steps", steps);
+        if (request.getTime() != null) {
+            meta.put("time", request.getTime());
         }
 
         Task task = Task.builder()
@@ -171,11 +163,18 @@ public class TaskService {
             }
         }
 
+        Map<String, Object> meta = task.getMeta() != null
+                ? new LinkedHashMap<>(task.getMeta())
+                : new LinkedHashMap<>();
         if (newSteps != null) {
-            Map<String, Object> meta = task.getMeta() != null
-                    ? new LinkedHashMap<>(task.getMeta())
-                    : new LinkedHashMap<>();
             meta.put("steps", new ArrayList<>(newSteps));
+        }
+        if (request.getTime() != null) {
+            meta.put("time", request.getTime());
+        } else if (request.getMeta() != null && request.getMeta().get("time") != null) {
+            meta.put("time", request.getMeta().get("time"));
+        }
+        if (newSteps != null || request.getTime() != null || (request.getMeta() != null && request.getMeta().get("time") != null)) {
             task.setMeta(meta);
         }
 
@@ -243,18 +242,6 @@ public class TaskService {
             return "";
         }
         return value.trim().replaceAll("\\s+", " ");
-    }
-
-    /** Returns true if meta contains a non-empty "steps" list (so we skip AI step generation). */
-    private static boolean hasNonEmptySteps(Map<String, Object> meta) {
-        if (meta == null) {
-            return false;
-        }
-        Object stepsObj = meta.get("steps");
-        if (!(stepsObj instanceof List)) {
-            return false;
-        }
-        return !((List<?>) stepsObj).isEmpty();
     }
 
     /** Extract the step text from a step object (Map, TaskStep, String, or BSON-friendly Map). */

@@ -27,6 +27,8 @@ public class UpdateTaskRequest {
      * If provided and contains a "steps" key, it will be used to update the task steps.
      */
     private Map<String, Object> meta;
+    /** Task time stored in meta under key "time" (e.g. "14:30" or "14:30:00"). */
+    private String time;
     /**
      * ID of the user performing the update; must match authorId.
      */

@@ -42,7 +42,7 @@ public class NotificationService {
         Notification notification = Notification.builder()
                 .notificationId(UUID.randomUUID().toString())
                 .notificationTitle(request.getNotificationTitle())
-                .notificationDesc(request.getNotificationDesc())
+                .notificationDesc(normalizeNotificationDesc(request.getNotificationDesc()))
                 .targetedUser(request.getTargetedUser())
                 .notificationTime(Instant.now())
                 .notificationStatus(status)
@@ -128,6 +128,49 @@ public class NotificationService {
             return OBJECT_MAPPER.writeValueAsString(plain);
         } catch (JsonProcessingException e) {
             return "[]";
+        }
+    }
+
+    /**
+     * Normalizes the notification description so we never store fenced JSON payloads like:
+     * ```json
+     * { "title": "...", "body": "..." }
+     * ```
+     * If a fenced JSON object with a "body" field is detected, that "body" string is stored instead.
+     */
+    private String normalizeNotificationDesc(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) {
+            return raw;
+        }
+
+        int firstNewline = trimmed.indexOf('\n');
+        if (firstNewline < 0) {
+            return raw;
+        }
+
+        // Strip ``` or ```json line
+        String withoutFenceLine = trimmed.substring(firstNewline + 1);
+        int lastFence = withoutFenceLine.lastIndexOf("```");
+        if (lastFence < 0) {
+            return raw;
+        }
+        String inner = withoutFenceLine.substring(0, lastFence).trim();
+        if (inner.isEmpty()) {
+            return raw;
+        }
+
+        try {
+            var node = OBJECT_MAPPER.readTree(inner);
+            if (node.has("body")) {
+                return node.get("body").asText();
+            }
+            return inner;
+        } catch (Exception e) {
+            return inner;
         }
     }
 }
