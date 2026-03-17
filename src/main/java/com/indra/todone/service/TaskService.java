@@ -3,6 +3,7 @@ package com.indra.todone.service;
 import com.indra.todone.dto.request.CreateTaskRequest;
 import com.indra.todone.dto.request.UpdateSubtaskStatusRequest;
 import com.indra.todone.dto.request.UpdateTaskStatusRequest;
+import com.indra.todone.dto.request.UpdateTaskRequest;
 import com.indra.todone.exception.SubtaskNotFoundException;
 import com.indra.todone.exception.UnauthorizedTaskAccessException;
 import com.indra.todone.exception.UserNotFoundException;
@@ -130,6 +131,54 @@ public class TaskService {
         } else {
             task.setDoneDate(null);
         }
+        return Optional.of(taskRepository.save(task));
+    }
+
+    public Optional<Task> updateTask(String taskId, UpdateTaskRequest request) {
+        Optional<Task> opt = taskRepository.findById(taskId);
+        if (opt.isEmpty()) {
+            return Optional.empty();
+        }
+        Task task = opt.get();
+        if (!task.getAuthorId().equals(request.getUserId())) {
+            throw new UnauthorizedTaskAccessException("Only the task author can perform this action.");
+        }
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            task.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            task.setDescription(request.getDescription());
+        }
+
+        List<TaskStep> newSteps = request.getSteps();
+        if (newSteps == null && request.getMeta() != null) {
+            Object stepsObj = request.getMeta().get("steps");
+            if (stepsObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> stepMaps = (List<Map<String, Object>>) stepsObj;
+                List<TaskStep> converted = new ArrayList<>();
+                for (Map<String, Object> s : stepMaps) {
+                    Object value = s.get("value");
+                    Object completedObj = s.get("completed");
+                    boolean completed = completedObj instanceof Boolean && (Boolean) completedObj;
+                    converted.add(TaskStep.builder()
+                            .value(value != null ? value.toString() : null)
+                            .completed(completed)
+                            .build());
+                }
+                newSteps = converted;
+            }
+        }
+
+        if (newSteps != null) {
+            Map<String, Object> meta = task.getMeta() != null
+                    ? new LinkedHashMap<>(task.getMeta())
+                    : new LinkedHashMap<>();
+            meta.put("steps", new ArrayList<>(newSteps));
+            task.setMeta(meta);
+        }
+
         return Optional.of(taskRepository.save(task));
     }
 

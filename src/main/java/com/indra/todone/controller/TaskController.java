@@ -3,6 +3,7 @@ package com.indra.todone.controller;
 import com.indra.todone.dto.request.CreateTaskRequest;
 import com.indra.todone.dto.request.UpdateSubtaskStatusRequest;
 import com.indra.todone.dto.request.UpdateTaskStatusRequest;
+import com.indra.todone.dto.request.UpdateTaskRequest;
 import com.indra.todone.dto.response.ApiResponse;
 import com.indra.todone.model.Task;
 import com.indra.todone.service.TaskService;
@@ -57,6 +58,19 @@ public class TaskController {
         Optional<Task> updated = taskService.updateStatus(taskId, request);
         return updated
                 .map(task -> ResponseEntity.ok(ApiResponse.success("Status updated", task)))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("Task not found")));
+    }
+
+    @PutMapping("/{taskId}")
+    @Operation(summary = "Update task", description = "Updates task name, description, and/or subtasks (steps). Query param userId required. Only the author can update. 403 if not author, 404 if task not found.")
+    public ResponseEntity<ApiResponse<Task>> updateTask(
+            @PathVariable String taskId,
+            @RequestParam String userId,
+            @RequestBody UpdateTaskRequest request) {
+        request.setUserId(userId);
+        Optional<Task> updated = taskService.updateTask(taskId, request);
+        return updated
+                .map(task -> ResponseEntity.ok(ApiResponse.success("Task updated", task)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("Task not found")));
     }
 
