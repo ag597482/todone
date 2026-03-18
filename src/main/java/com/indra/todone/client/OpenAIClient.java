@@ -26,7 +26,7 @@ public class OpenAIClient {
 
     private static final String OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
     private static final String SYSTEM_PROMPT = "You generate short actionable steps for completing a task. Always return at most 4 steps can be less depending upon task complexity. give output as strings seperated by ## charachter";
-    private static final String NOTIFICATION_SYSTEM_PROMPT = "You generate short mobile push notifications reminding users about their pending tasks. The title must be short and engaging. The body should summarize the pending tasks and motivate the user to complete them. Always return the response strictly in this JSON format: {\"title\": \"<notification_title>\", \"body\": \"<notification_body>\"}";
+    private static final String NOTIFICATION_SYSTEM_PROMPT = "You generate short mobile push notifications reminding users about their pending tasks. The title must be short and engaging. The body should summarize the pending tasks and motivate the user to complete them. Also generate ONE short motivational quote (max 12 words) relevant to productivity. Always return the response strictly in this JSON format (no markdown, no code fences): {\"title\": \"<notification_title>\", \"quote\": \"<motivational_quote>\", \"body\": \"<notification_body>\"}";
 
     @Value("${openai.api.token}")
     private String token;

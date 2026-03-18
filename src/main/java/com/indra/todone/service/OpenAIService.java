@@ -49,6 +49,10 @@ public class OpenAIService {
             JsonNode node = OBJECT_MAPPER.readTree(raw.trim());
             String title = node.has("title") ? node.get("title").asText("Tasks reminder") : "Tasks reminder";
             String body = node.has("body") ? node.get("body").asText("") : "You have pending tasks to complete.";
+            String quote = node.has("quote") ? node.get("quote").asText("") : "";
+            if (quote != null && !quote.isBlank()) {
+                title = quote.trim() + " — " + title;
+            }
             return NotificationBodyResponse.builder().title(title).body(body).build();
         } catch (Exception e) {
             return NotificationBodyResponse.builder()
