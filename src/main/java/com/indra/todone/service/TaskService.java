@@ -8,9 +8,11 @@ import com.indra.todone.exception.SubtaskNotFoundException;
 import com.indra.todone.exception.UnauthorizedTaskAccessException;
 import com.indra.todone.exception.UserNotFoundException;
 import com.indra.todone.model.Task;
+import com.indra.todone.model.TaskGroup;
 import com.indra.todone.model.TaskStep;
 import com.indra.todone.model.TaskStatus;
 import com.indra.todone.repository.TaskRepository;
+import com.indra.todone.repository.TaskGroupRepository;
 import com.indra.todone.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final TaskGroupRepository taskGroupRepository;
 
     public Task createTask(CreateTaskRequest request) {
         String authorId = request.getAuthorId();
@@ -45,6 +48,8 @@ public class TaskService {
             meta.put("time", request.getTime());
         }
 
+        String taskGroupId = resolveTaskGroupForAuthor(request.getTaskGroupId(), authorId);
+
         Task task = Task.builder()
                 .taskId(UUID.randomUUID().toString())
                 .name(request.getName())
@@ -54,6 +59,7 @@ public class TaskService {
                 .doneDate(null)
                 .status(TaskStatus.PENDING)
                 .authorId(request.getAuthorId())
+                .taskGroupId(taskGroupId)
                 .build();
         return taskRepository.save(task);
     }
@@ -143,6 +149,20 @@ public class TaskService {
             task.setDescription(request.getDescription());
         }
 
+        // taskGroupId semantics:
+        // - null: leave as-is (no change)
+        // - empty string: ungroup task (set to null)
+        // - non-blank: validate group belongs to author, then set
+        if (request.getTaskGroupId() != null) {
+            String newGroupId = request.getTaskGroupId();
+            if (newGroupId.isBlank()) {
+                task.setTaskGroupId(null);
+            } else {
+                String resolved = resolveTaskGroupForAuthor(newGroupId, task.getAuthorId());
+                task.setTaskGroupId(resolved);
+            }
+        }
+
         List<TaskStep> newSteps = request.getSteps();
         if (newSteps == null && request.getMeta() != null) {
             Object stepsObj = request.getMeta().get("steps");
@@ -179,6 +199,21 @@ public class TaskService {
         }
 
         return Optional.of(taskRepository.save(task));
+    }
+
+    private String resolveTaskGroupForAuthor(String taskGroupId, String authorId) {
+        if (taskGroupId == null || taskGroupId.isBlank()) {
+            return null;
+        }
+        Optional<TaskGroup> opt = taskGroupRepository.findById(taskGroupId);
+        if (opt.isEmpty()) {
+            throw new IllegalArgumentException("Task group not found for id: " + taskGroupId);
+        }
+        TaskGroup group = opt.get();
+        if (!group.getAuthorId().equals(authorId)) {
+            throw new IllegalArgumentException("Task group does not belong to this user.");
+        }
+        return group.getTaskGroupId();
     }
 
     /** Sets every step in meta.steps to completed = true. */

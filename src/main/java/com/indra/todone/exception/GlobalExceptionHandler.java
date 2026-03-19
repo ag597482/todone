@@ -76,6 +76,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
+    @ExceptionHandler(TaskGroupNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTaskGroupNotFound(TaskGroupNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
     @ExceptionHandler(DuplicatePhoneNumberException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicatePhoneNumber(DuplicatePhoneNumberException ex) {
         return ResponseEntity

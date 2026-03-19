@@ -1,5 +1,7 @@
 package com.indra.todone.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +31,13 @@ public class UpdateTaskRequest {
     private Map<String, Object> meta;
     /** Task time stored in meta under key "time" (e.g. "14:30" or "14:30:00"). */
     private String time;
+    /**
+     * Optional task group id to assign. If null, the existing taskGroupId is left unchanged.
+     * If empty string, the task is ungrouped (taskGroupId set to null).
+     */
+    @JsonProperty("task_group_id")
+    @JsonAlias({"taskGroupId"})
+    private String taskGroupId;
     /**
      * ID of the user performing the update; must match authorId.
      */
