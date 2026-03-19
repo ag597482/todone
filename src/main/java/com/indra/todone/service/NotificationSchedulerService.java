@@ -16,6 +16,8 @@ import java.util.List;
 @Slf4j
 public class NotificationSchedulerService {
 
+    private static final String TODONE_FRONTEND_URL = "https://ag597482.github.io/todone_frontend";
+
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final TelegramService telegramService;
@@ -46,6 +48,7 @@ public class NotificationSchedulerService {
 
                 if (telegramService.hasTelegramLinked(user)) {
                     String message = body.isBlank() ? title : title + "\n\n" + body;
+                    message = message + "\n\n" + TODONE_FRONTEND_URL;
                     telegramService.sendMessageToUser(user, message);
                 }
             } catch (Exception e) {
